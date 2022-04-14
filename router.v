@@ -14,7 +14,7 @@ module router #(
     input left_in_buffer_full, //next router indicating it's buffer is full
     output left_out_buffer_full, //this router indicating previous router that it is full
     output [PACKET_SIZE-1:0]left_data_out, //outgoing data from left port
-    output left_enable_out, //continue passing data to next router if 1 
+    output left_enable_out, //continue passing data to next router if 1
     
     input [PACKET_SIZE-1:0]right_data_in,
     input right_enable_in,
@@ -36,7 +36,7 @@ module router #(
     reg [PACKET_SIZE-1:0]right_data_out;
     reg right_enable_out;
 
-    reg [ROUTER_BITS-1:0]router_no; //fixed value  
+    reg [ROUTER_BITS-1:0]router_no; //fixed value
 
     reg [PACKET_SIZE:0] vc0; //4 VC's : 2 left , 2 right
     reg [PACKET_SIZE:0] vc1;
@@ -58,7 +58,7 @@ module router #(
     begin
         if(rst)
         begin
-            right_data_out <= 8'bz; 
+            right_data_out <= 8'bz;
             right_enable_out <= 1'bz;
             router_no <= ROUTER_ID;
             vc0 <=8'b0;
@@ -94,32 +94,16 @@ module router #(
                     x <= 3;
                 end
             end
-        
-
-            
-            flag2 <= 0;
-            for ( i = 0; i < 10; i=i+1) 
-            begin
-                if(flag2 == 0)
-                begin
-                    x <= 100;
-                    temp1 <= {$random} %2;
-                    if(((vc0[0]==0) && (temp1==0)) || ((vc1[0]==0) && (temp1==1)))
-                    begin
-                        vc_left <= temp1;
-                        flag2 <= 1;
-                    end
-                end
-            end
-
-
-
+            x <= 10;
+           vc_left <= ({$random} %2)? (vc1[0]? 1:(vc0[0]? 0:-1)) : (vc0[0]? 0:(vc1[0]? 1:-1));
+            x <= 4;
             if(vc_left == 0)
             begin
+                x <= 3;
                 if (vc0[ROUTER_BITS:1] == router_no) //if Packet has reached destination
                 begin
                     right_enable_out <= 0; //stop forwarding the packet in the network
-                    //send host    
+                    //send host
                 end
                 else if (right_in_buffer_full == 1) //check if next router has empty buffers, if 1 don't forward
                 begin
@@ -128,17 +112,18 @@ module router #(
                 end
                 else //if current router is not destination and packet can be forwarded
                 begin
+                    x <= 2;
                     right_data_out <= vc0[PACKET_SIZE:1];
                     right_enable_out <= 1'b1; //change
-                    vc0[0] <= 0; //free the VC after packet is sent out
-                end     
+                    vc0 <= 0; //free the VC after packet is sent out
+                end
             end
             else if(vc_left == 1)
             begin
                 if (vc1[ROUTER_BITS:1] == router_no) //if Packet has reached destination
                 begin
                     right_enable_out <= 0; //stop forwarding the packet in the network
-                    //send host    
+                    //send host
                 end
                 else if (right_in_buffer_full == 1) //check if next router has empty buffers, if 1 don't forward
                 begin
@@ -149,8 +134,8 @@ module router #(
                 begin
                     right_data_out <= vc1[PACKET_SIZE:1];
                     right_enable_out <= 1'b1;
-                    vc1[0] <= 0; //free the VC after packet is sent out
-                end     
+                    vc1 <= 0; //free the VC after packet is sent out
+                end
             end
             
             //indicate to the previous router if current router has free VCs
@@ -163,8 +148,8 @@ module router #(
             if(left_full_vc == NUM_VC/2)
                 left_out_buffer_full <= 1;
             else
-                left_out_buffer_full <= 0; 
-        end 
+                left_out_buffer_full <= 0;
+        end
     end
 
 

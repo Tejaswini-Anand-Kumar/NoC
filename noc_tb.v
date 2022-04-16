@@ -20,11 +20,13 @@ initial begin
     $dumpvars;
 
     clk <= 1;
-    rst <= 1; 
+    rst <= 1;
     #2 rst <= 0; left_in <= 8'b11; left_en <= 1'b1;
     #2 left_in <= 8'bz; left_en <= 1'bz;
+    #6 left_in <= 8'b111; left_en <= 1'b1;
+    #2 left_in <= 8'bz; left_en <= 1'bz;
     
-    #20 $stop;
+    #40 $stop;
     end
 
 endmodule

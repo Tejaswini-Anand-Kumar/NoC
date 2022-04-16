@@ -59,7 +59,7 @@ module router #(
         if(rst)
         begin
             right_data_out <= 8'bz;
-            right_enable_out <= 1'bz;
+            right_enable_out <= 1'b0;
             router_no <= ROUTER_ID;
             vc0 <=8'b0;
             vc1 <=8'b0;
@@ -93,16 +93,19 @@ module router #(
                     flag1 <= 1;
                     x <= 3;
                 end
+                flag1 <= 0;
             end
             x <= 10;
            vc_left <= ({$random} %2)? (vc1[0]? 1:(vc0[0]? 0:-1)) : (vc0[0]? 0:(vc1[0]? 1:-1));
             x <= 4;
-            if(vc_left == 0)
+            if((vc_left == 0) && (vc0[0] == 1))
             begin
                 x <= 3;
                 if (vc0[ROUTER_BITS:1] == router_no) //if Packet has reached destination
                 begin
                     right_enable_out <= 0; //stop forwarding the packet in the network
+                    right_data_out <= 8'bz;
+                    vc0 <= 0;
                     //send host
                 end
                 else if (right_in_buffer_full == 1) //check if next router has empty buffers, if 1 don't forward
@@ -118,11 +121,13 @@ module router #(
                     vc0 <= 0; //free the VC after packet is sent out
                 end
             end
-            else if(vc_left == 1)
+            else if((vc_left == 1) && (vc1[0] == 1))
             begin
                 if (vc1[ROUTER_BITS:1] == router_no) //if Packet has reached destination
                 begin
                     right_enable_out <= 0; //stop forwarding the packet in the network
+                    right_data_out <= 8'bz;
+                    vc0 <= 0;
                     //send host
                 end
                 else if (right_in_buffer_full == 1) //check if next router has empty buffers, if 1 don't forward
@@ -136,6 +141,11 @@ module router #(
                     right_enable_out <= 1'b1;
                     vc1 <= 0; //free the VC after packet is sent out
                 end
+            end
+            else
+            begin
+                right_data_out <= 8'bz;
+                right_enable_out <= 1'b0;
             end
             
             //indicate to the previous router if current router has free VCs

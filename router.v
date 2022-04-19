@@ -21,12 +21,11 @@ module router #(
     input right_in_buffer_full,
     output right_out_buffer_full,
     output [PACKET_SIZE-1:0]right_data_out,
-    output right_enable_out
+    output right_enable_out,
 
-    
-    // input [PACKET_SIZE-1:0]host_data_in,
-    // input host_enable_in,
-    // output [PACKET_SIZE-1:0]host_data_out
+    input [PACKET_SIZE-1:0]host_data_in,
+    input host_enable_in,
+    output [PACKET_SIZE-1:0]host_data_out
 );
 
     reg left_out_buffer_full;
@@ -35,6 +34,7 @@ module router #(
     reg right_out_buffer_full;
     reg [PACKET_SIZE-1:0]right_data_out;
     reg right_enable_out;
+    reg [PACKET_SIZE-1:0]host_data_out;
 
     reg [ROUTER_BITS-1:0]router_no; //fixed value
 
@@ -42,17 +42,84 @@ module router #(
     reg [PACKET_SIZE:0] vc1;
     reg [PACKET_SIZE:0] vc2;
     reg [PACKET_SIZE:0] vc3;
+    reg route;
     integer vc_left; //indicates empty VC for left_data_in
     integer vc_right; //indidcates empty VC for right_data_in
     integer left_full_vc=0; //indidcates all left VCs are full
     integer right_full_vc=0; //indicates all right VCs are full
-    integer random_loop1=0;
-    integer random_loop2=0;
-    integer temp1=0;
-    integer temp2=0;
-    integer i,j,a,b,c,d;
-    integer flag1, flag2, flag3, flag4;
+    integer flag_left, flag_host;
     integer x;
+    //traffic coming from host
+    always @(posedge clk)
+    begin
+        if(rst)
+        begin
+            
+            flag_host <= 0;
+            host_data_out <= 8'bz;
+            route <= 1'bz;
+        end
+        else if(host_enable_in == 1)
+            begin //asssign left or right route based on router_no and destination
+                if(((host_data_in[ROUTER_BITS-1:0] > router_no) && ((host_data_in[ROUTER_BITS-1:0] - router_no) < (NUM_ROUTERS/2)))
+                || ((host_data_in[ROUTER_BITS-1:0] < router_no) && ((router_no - host_data_in[ROUTER_BITS-1:0]) > (NUM_ROUTERS/2))))
+                begin
+                    route <= 1'b0;
+                end
+                else if(((host_data_in[ROUTER_BITS-1:0] - router_no) == (NUM_ROUTERS/2)) || ((router_no - host_data_in[ROUTER_BITS-1:0]) == (NUM_ROUTERS/2)))
+                begin
+                    route <= {$random} %2;
+                end
+                else
+                begin
+                    route <= 1'b1;
+                end
+
+                //If the packet is to be routed right and if there are no other packets moving right
+                //assign VC0 or VC1 based on availability.
+                if((!left_enable_in) && (route == 0))
+                begin
+                    flag_host <= 0;
+                    if((vc0[0] == 0) && (flag_host == 0)) //if current vc is invalid
+                    begin
+                        vc0[PACKET_SIZE:1] <= host_data_in; //assign left data to empty vc
+                        vc0[0] <= 1; //set it to valid
+                        flag_host <= 1;
+                    end
+
+                    else if((vc1[0] == 0) && (flag_host == 0)) //if current vc is invalid
+                    begin
+                        vc1[PACKET_SIZE:1] <= host_data_in; //assign left data to empty vc
+                        vc1[0] <= 1; //set it to valid
+                        flag_host <= 1;
+                    end
+                    flag_host <= 0;
+                end
+
+                //If the packet is to be routed left and if there are no other packets moving left
+                //assign VC2 or VC3 based on availability.
+                else if((!right_enable_in) && (route == 1))
+                begin
+                    flag_host <= 0;
+                    if((vc2[0] == 0) && (flag_host == 0)) //if current vc is invalid
+                    begin
+                        vc2[PACKET_SIZE:1] <= host_data_in; //assign left data to empty vc
+                        vc2[0] <= 1; //set it to valid
+                        flag_host <= 1;
+                    end
+
+                    else if((vc3[0] == 0) && (flag_host == 0)) //if current vc is invalid
+                    begin
+                        vc3[PACKET_SIZE:1] <= host_data_in; //assign left data to empty vc
+                        vc3[0] <= 1; //set it to valid
+                        flag_host <= 1;
+                    end
+                    flag_host <= 0;
+                end
+            end
+            
+    end
+
     //Traffic going from left to right
     always @(posedge clk)
     begin
@@ -61,13 +128,12 @@ module router #(
             right_data_out <= 8'bz;
             right_enable_out <= 1'b0;
             router_no <= ROUTER_ID;
-            vc0 <=8'b0;
-            vc1 <=8'b0;
+            vc0 <= 8'b0;
+            vc1 <= 8'b0;
             vc_left <= -1;
             x <= 1;
-            flag1 <= 0; //change
-            flag2 <= 0;
-        
+            flag_left <= 0; //change
+               
         end
 
         else
@@ -76,25 +142,26 @@ module router #(
             if(left_enable_in == 1)
             begin
                 x <= 23;
-                flag1 <= 0;
-                if((vc0[0] == 0) && (flag1 == 0)) //if current vc is invalid
+                flag_left <= 0;
+                if((vc0[0] == 0) && (flag_left == 0)) //if current vc is invalid
                 begin
                     x <= 55;
                     vc0[PACKET_SIZE:1] <= left_data_in; //assign left data to empty vc
                     vc0[0] <= 1; //set it to valid
-                    flag1 <= 1;
+                    flag_left <= 1;
                     x <= 2;
                 end
 
-                else if((vc1[0] == 0) && (flag1 == 0)) //if current vc is invalid
+                else if((vc1[0] == 0) && (flag_left == 0)) //if current vc is invalid
                 begin
                     vc1[PACKET_SIZE:1] <= left_data_in; //assign left data to empty vc
                     vc1[0] <= 1; //set it to valid
-                    flag1 <= 1;
+                    flag_left <= 1;
                     x <= 3;
                 end
-                flag1 <= 0;
+                flag_left <= 0;
             end
+
             x <= 10;
            vc_left <= ({$random} %2)? (vc1[0]? 1:(vc0[0]? 0:-1)) : (vc0[0]? 0:(vc1[0]? 1:-1));
             x <= 4;
@@ -106,6 +173,7 @@ module router #(
                     right_enable_out <= 0; //stop forwarding the packet in the network
                     right_data_out <= 8'bz;
                     vc0 <= 0;
+                    host_data_out <= vc0[PACKET_SIZE:1];
                     //send host
                 end
                 else if (right_in_buffer_full == 1) //check if next router has empty buffers, if 1 don't forward
@@ -128,6 +196,7 @@ module router #(
                     right_enable_out <= 0; //stop forwarding the packet in the network
                     right_data_out <= 8'bz;
                     vc0 <= 0;
+                    host_data_out <= vc1[PACKET_SIZE:1];
                     //send host
                 end
                 else if (right_in_buffer_full == 1) //check if next router has empty buffers, if 1 don't forward
@@ -146,6 +215,7 @@ module router #(
             begin
                 right_data_out <= 8'bz;
                 right_enable_out <= 1'b0;
+                host_data_out <= 8'bz;
             end
             
             //indicate to the previous router if current router has free VCs
